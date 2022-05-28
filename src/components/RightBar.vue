@@ -57,11 +57,11 @@
         <section class="font-paytone text-primary">
             <h2 class="text-dark">&MetaTalk</h2>
         </section>
-        <main class="container bg-primary p-3 pb-3">
+        <main class="container bg-primary p-3 pb-0">
             <div class="row d-flex justify-content-center">
                 <div class="col-12 bg-white">
                     <div class="row border bg-white position-relative">
-                        <ul ref="msgHeight" class="col-12 bar border-primary d-flex flex-column"
+                        <ul ref="msgHeight" class="col-12 bar border-primary d-flex flex-column position-relative"
                         style="overflow-y: auto; max-height: 230px; min-height: 230px;">
                             <template v-for="item in MsgTemp" :key="item.id">
                                 <template v-if="item.type === 'me' && item.img === ''">
@@ -89,7 +89,7 @@
                                     <li class="row d-flex justify-content-start pt-5 pb-3">
                                         <div class="col-3" style="width: 40px; height: 40px; background-color: aquamarine; border-radius: 50%;"></div>
                                         <div class="col d-flex flex-column align-items-start">
-                                            <span>test-5:</span>
+                                            <span>{{item.userName}}:</span>
                                             <div class="p-2 rounded-3 position-relative" style="max-width: 70%">
                                                 <img :src="item.img" class="img-fluid" />
                                             </div>
@@ -103,14 +103,25 @@
                 </div>
             </div>
         </main>
-        <section class="d-grid gap-2 col-1 me-auto">
-            <div class="dropdown">
-                <a class="btn btn-secondary" style="box-shadow: none;" role="button" @click="getImg()" >
+        <section class="d-grid gap-2 col-12 me-auto bg-primary">
+            <div class="dropdown dropstart">
+                <a class="btn btn-secondary bg-primary border-0" style="box-shadow: none;" role="button" id="dropdownMenu2" data-bs-toggle="dropdown" aria-expanded="false">
                     <span
-                        class="material-symbols-outlined text-dark fs-2">
+                        class="material-symbols-outlined text-dark fs-2 d-flex pt-1 text-white">
                         image
                     </span>
                 </a>
+                <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                    <div class="row row-cols-5 g-3 p-3">
+                        <template v-for="item in takeImg">
+                            <div class="col" @click="sendImg(item)">
+                                <div class="card boder-0">
+                                    <img :src="item.img" class="card-img-top d-block m-auto" alt="">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
         </section>
         <section class="container bg-primary p-1">
@@ -125,7 +136,6 @@
                 </section>
             </div>
         </section>
-        <img src="https://imgur.com/UwD0lLm" alt="">
     </div>
 </template>
 
@@ -136,7 +146,7 @@ import {ref, onMounted} from 'vue';
 import { io } from "socket.io-client";
 const socket = io('https://morning-harbor-94074.herokuapp.com/');
 
-//先拿自己的資料
+//先拿使用者的名字
 onMounted(() => {
     axios.get('https://shielded-bastion-20090.herokuapp.com/users/user',{
         headers:{
@@ -150,93 +160,97 @@ onMounted(() => {
     .catch(error => console.log(error));
 })
 
-//存一下文字跟人名和輸入的內容
+//存一下留言跟人名和輸入的內容
 const MsgTemp = ref([]);
 const userName = ref('');
 const textMsg = ref('');
-//找高度
+//存一下高度
 const msgHeight = ref();
 
-const submit = async ()=> {
-    let addMsg = await MsgTemp.value.push({
+//發送留言
+const submit = ()=> {
+    //推留言上去畫面
+    MsgTemp.value.push({
         userName: userName.value,
         userMsg: textMsg.value,
         type: 'me',
-        img: '',
+        img: ''
     });
+    //送到後端
     socket.emit('chat message', MsgTemp.value);
-    msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
+    //清空輸入的留言區塊
     textMsg.value ='';
+    //滾動高度到最新一筆
+    setTimeout(() => {
+        msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
+    }, "50")
 }
-
-socket.on('chat message',async (youMsg)=> {
-    console.log(youMsg)
+//收訊息
+socket.on('chat message',(youMsg)=> {
+    MsgTemp.value = []
     const addMsg = youMsg
+    //推留言上去畫面
     addMsg.forEach(item => {
         MsgTemp.value.push({
         userName: item.userName,
         userMsg: item.userMsg,
         type: 'you',
-        img: '',
+        img: item.img,
+        });
     });
-    });
-    msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
+     //滾動高度到最新一筆
+    setTimeout(() => {
+        msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
+    }, "50")
 });
 
-const takeImg = ref([])
-const getImg = ()=>{
+//傳圖的部分
+
+const takeImg = ref()
+//先拿圖片回來用
+onMounted(() => {
     axios.get('https://morning-harbor-94074.herokuapp.com/addImg')
     .then((res) => {
         console.log(res.data)
-        takeImg.value = [];
         const getImg = res.data.data
-        getImg.forEach(item => {
-            takeImg.value.push(item.img) ;
-            console.log(takeImg.value)
-        });
+        takeImg.value = getImg;
     })
     .catch(error => console.log(error));
+})
+
+const sendImg = (item)=>{
+    //推圖片到畫面
+    MsgTemp.value.push({
+            userName: userName.value,
+            userMsg: item.userMsg,
+            type: 'me',
+            img: item.img
+    });
+    //送到後端
+    socket.emit('imgSend', MsgTemp.value);
+     //滾動高度到最新一筆
+    setTimeout(() => {
+        msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
+    }, "50")
 }
 
-// let fileInput = ref();
-// let preview = ref('');
-
-// const formData = new FormData();
-// const uploadFile = () => {
-//     const uploadedFile = fileInput.value.files[0];
-//     const reader = new FileReader();
-//     reader.readAsDataURL(uploadedFile);
-//     reader.onloadend = function() {
-//         preview.value = reader.result
-//         MsgTemp.value.push({
-//             userName: userName.value,
-//             userMsg: '',
-//             type: 'me',
-//             img: preview.value
-//         });
-//         msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
-//     }
-//     formData.append('file-to-upload',uploadedFile);
-//     axios.post('https://morning-harbor-94074.herokuapp.com/upload', formData, {
-//         headers: {
-//         'Content-Type': 'multipart/form-data',
-//         },
-//     })
-//     .then((res) => {
-//         console.log(res.data.data.url)
-//         socket.emit('imgSend', res.data.data.url);
-//     })
-//     .catch(error => console.log(error));
-// }
-// socket.on('imgSend', (youImg)=> {
-//     console.log(youImg);
-//     MsgTemp.value.push({
-//         userName: '',
-//         userMsg: '',
-//         type: 'you',
-//         img: youImg
-//     });
-//     msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
-// });
+socket.on('imgSend', (youImg)=> {
+    //收圖片
+    MsgTemp.value = []
+    const addImg = youImg
+    //推到畫面
+    addImg.forEach( (item)=> {     
+        MsgTemp.value.push({
+            userName: item.userName,
+            userMsg: item.userMsg,
+            type: 'you',
+            img: item.img
+        });
+    });
+    //滾動高度到最新一筆
+    setTimeout(() => {
+        msgHeight.value.scrollTop = msgHeight.value.scrollHeight;
+    }, "50")
+});
 
 </script>
